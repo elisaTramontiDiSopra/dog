@@ -35,25 +35,38 @@ local physics = require "physics"
 -- game var
 local padButtonDimension = 30 -- GAMEPAD
 local buttonPressed = {Down = false, Up = false, Left = false, Right = false}
-local widthFrame, heightFrame = 52, 71
+local widthFrame, heightFrame = 50, 50
+local gridMatrix = {} -- matrix for the grid. 0 values in the cell means it's a PATH, 1 means it's an obstacle
+local gridMatrixRows, gridMatrixCol = 10, 15
 local velocity = 5
 
 -- Image and sprite options for dog
-local dogSrc = "scene/game/img/caracters/brownDog.png"
-local sheetOptions = {width = widthFrame, height = heightFrame, numFrames = 12}
+local dogSrc = "scene/game/img/caracters/mainDog.png"
+local sheetOptions = {width = widthFrame, height = heightFrame, numFrames = 16}
 local sequenceData = {
-    { name="walkingDown", start=1, count=3, time=100, loopCount = 0, loopDirection = "forward"},
-    { name="walkingLeft", start=4, count=3, time=100, loopCount = 0, loopDirection = "forward"},
-    { name="walkingRight", start=7, count=3, time=100, loopCount = 0, loopDirection = "forward"},
-    { name="walkingUp", start=10, count=3, time=100, loopCount = 0, loopDirection = "forward"},}
+    { name="walkingDown", start=1, count=4, time=100, loopCount = 0, loopDirection = "forward"},
+    { name="walkingLeft", start=5, count=4, time=100, loopCount = 0, loopDirection = "forward"},
+    { name="walkingRight", start=9, count=4, time=100, loopCount = 0, loopDirection = "forward"},
+    { name="walkingUp", start=13, count=4, time=100, loopCount = 0, loopDirection = "forward"},}
 
 -- Get the screen values
 local screenWidth = display.viewableContentWidth
 local screenHeight = display.viewableContentHeight
 
+-- Populate the grid matrix for the level
+for i = 1, gridMatrixRows do
+  gridMatrix[i] = {} -- create a new row
+  for j = 1, gridMatrixCol do
+    gridMatrix[i][j] = 1 --they're all obstacles at the beginning
+  end
+end
+
+-- Random walking algorithm, clearing the path
+
+
 -- Create the sprite
 local imageSheet = graphics.newImageSheet(dogSrc, sheetOptions)
-local player = display.newSprite(imageSheet, sequenceData )
+local player = display.newSprite(imageSheet, sequenceData)
 player.x = display.contentWidth/2 ;
 player.y = display.contentHeight/2
 player:setSequence( "walkingDown" )
