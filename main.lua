@@ -34,8 +34,10 @@ local padButtonDimension = 30 -- GAMEPAD
 local buttonPressed = {Down = false, Up = false, Left = false, Right = false}
 local widthFrame, heightFrame = 50, 50
 local gridMatrix = {} -- matrix for the grid. 0 values in the cell means it's a PATH, 1 means it's an obstacle
-local gridRows, gridCol, centerHoriz, centerVert = 10, 10, 5, 5 --just initial random data, they will be calculated in createGrid()
+local gridRows, gridCol, centerHoriz, centerVert, marginHoriz, marginVert --just initial random data, they will be calculated in createGrid()
 local velocity = 5
+
+local player
 
 -- Obstacles Sheet vars
 local obstacles = {'flower','rock','tree'}
@@ -75,6 +77,17 @@ local sequenceData = {
 local screenWidth = display.viewableContentWidth
 local screenHeight = display.viewableContentHeight
 
+-- Removes status bar on iOS
+display.setStatusBar( display.HiddenStatusBar )
+
+-- Removes bottom bar on Android
+if system.getInfo( "androidApiLevel" ) and system.getInfo( "androidApiLevel" ) < 19 then
+  native.setProperty( "androidSystemUiVisibility", "lowProfile" )
+else
+  native.setProperty( "androidSystemUiVisibility", "immersiveSticky" )
+end
+
+
 -- Create a grid for the level
 local function createTheGrid()
   -- find the grid dimensions
@@ -82,7 +95,10 @@ local function createTheGrid()
   gridRows = math.floor(display.contentHeight / heightFrame)
   centerHoriz = math.floor(gridRows/2)
   centerVert = math.floor(gridCol/2)
-  print(gridRows..'x'..gridCol)
+  marginHoriz = (display.contentWidth - (gridCol * widthFrame))/2
+  marginVert = (display.contentHeight - (gridRows * heightFrame))/2
+  print(marginVert)
+  print(display.contentHeight)
   -- center the grid
 
   -- Populate the grid matrix for the level
@@ -105,10 +121,6 @@ local function createTheGrid()
 end
 
 local function openPath(rowNumber, colNumber)
-   -- print(rowNumber)
-    -- print('col '..colNumber)
-    --
-
     -- set the gridCell as path
     gridMatrix[rowNumber][colNumber].obstacle = 0
     -- choose the random path and save it in the grid to remember it
@@ -138,23 +150,15 @@ local function randomWalkPath()
     -- 1 choose a random number between 1 and 4 (the 4 directions)
     randomDirection = math.random(4)
     if (randomDirection == 1 and pathGridY > 1) then -- moveUp
-      print('- y')
-      print(pathGridY)
       pathTracer.y = pathTracer.y - heightFrame
       pathGridY = pathGridY - 1
     elseif (randomDirection == 2 and pathGridX > 1) then -- moveRight
-      print('- x')
-        print(pathGridX)
       pathTracer.x = pathTracer.x - widthFrame
       pathGridX = pathGridX - 1
     elseif (randomDirection == 3 and pathGridX < gridRows) then -- moveLeft
-      print('+ x')
-        print(pathGridX)
       pathTracer.x = pathTracer.x + widthFrame
       pathGridX = pathGridX + 1
     elseif (randomDirection == 4 and pathGridY < gridCol) then -- moveDown
-      print('+ y')
-        print(pathGridY)
       pathTracer.y = pathTracer.y + heightFrame
       pathGridY = pathGridY + 1
     end
@@ -162,12 +166,14 @@ local function randomWalkPath()
   end
 end
 
--- Create the sprite
-local imageSheet = graphics.newImageSheet(dogSrc, sheetOptions)
-local player = display.newSprite(imageSheet, sequenceData)
-player.x = display.contentWidth / 2
-player.y = display.contentHeight / 2
-player:setSequence("walkingDown")
+local function createThePlayer()
+    -- Create the sprite
+    local imageSheet = graphics.newImageSheet(dogSrc, sheetOptions)
+    player = display.newSprite(imageSheet, sequenceData)
+    player.x = gridMatrix[centerHoriz][centerVert].xPos
+    player.y = gridMatrix[centerHoriz][centerVert].yPos
+    player:setSequence("walkingDown")
+end
 
 function showDirectionPad()
     upBtn = display.newRect(display.contentWidth -
@@ -221,22 +227,30 @@ end
 
 local function frameUpdate()
     if buttonPressed['Down'] == true and player.y <
-        (screenHeight - heightFrame / 4) then
-        player.y = player.y + velocity
-    elseif buttonPressed['Up'] == true and player.y > (0 + heightFrame / 4) then
-        player.y = player.y - velocity
+      -- (screenHeight - heightFrame / 4) then
+      (gridRows * heightFrame) - heightFrame/2 then
+      player.y = player.y + velocity
+    elseif buttonPressed['Up'] == true and player.y >
+      --(0 + heightFrame / 4) then
+      (0 + heightFrame) then
+      player.y = player.y - velocity
     elseif buttonPressed['Right'] == true and player.x <
-        (screenWidth + widthFrame / 4) then
-        player.x = player.x + velocity
-    elseif buttonPressed['Left'] == true and player.x > (0 - widthFrame / 4) then
-        player.x = player.x - velocity
+      --(screenWidth + widthFrame / 4) then
+      (gridCol * widthFrame) then
+      player.x = player.x + velocity
+    elseif buttonPressed['Left'] == true and player.x >
+        --(0 - widthFrame / 4) then
+      (0 + widthFrame) then
+    print(player.x)
+      player.x = player.x - velocity
     end
 end
 
 -- GAME
 Runtime:addEventListener("enterFrame", frameUpdate) -- if the move buttons are pressed MOVE!
-showDirectionPad()
 randomWalkPath()
+showDirectionPad()
+createThePlayer()
 
 --[[
 local composer = require "composer"
