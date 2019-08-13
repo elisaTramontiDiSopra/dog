@@ -28,6 +28,8 @@ end
 
 local composer = require "composer"
 local physics = require "physics"
+physics.start()
+physics.setGravity( 0,0 )
 
 -- game var
 local padButtonDimension = 30 -- GAMEPAD
@@ -38,6 +40,7 @@ local gridRows, gridCol, centerHoriz, centerVert, marginHoriz, marginVert --just
 local velocity = 5
 
 local player
+local bodyOptions = {density = 100.0, friction = 15, bounce = 0 }
 
 -- Obstacles Sheet vars
 local obstacles = {'flower','rock','tree'}
@@ -87,7 +90,6 @@ else
   native.setProperty( "androidSystemUiVisibility", "immersiveSticky" )
 end
 
-
 -- Create a grid for the level
 local function createTheGrid()
   -- find the grid dimensions
@@ -97,8 +99,6 @@ local function createTheGrid()
   centerVert = math.floor(gridCol/2)
   marginHoriz = (display.contentWidth - (gridCol * widthFrame))/2
   marginVert = (display.contentHeight - (gridRows * heightFrame))/2
-  print(marginVert)
-  print(display.contentHeight)
   -- center the grid
 
   -- Populate the grid matrix for the level
@@ -109,13 +109,31 @@ local function createTheGrid()
         randomObstacleType = obstacles[math.random(table.maxn(obstacles))]
         randomObstacle = math.random(4)
         -- gridCell = {x, y, path/obstacle (0/1), random obstacle, cell name}
-        gridMatrix[i][j] = {xPos = j * widthFrame, yPos = i * heightFrame, obstacle = 1, backgroundFrame = randomObstacleType..randomObstacle, name = 'gridCell'..'-'..i..'-'..j}
+        gridMatrix[i][j] = {xPos = j * widthFrame, yPos = i * heightFrame, obstacle = 1, backgroundFrame = randomObstacleType..randomObstacle, name = 'gridCell'..'-'..i..'-'..j, type = objectType}
         -- display cell
         cellName = gridMatrix[i][j].name
         cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
         cellName.x = gridMatrix[i][j].xPos
         cellName.y = gridMatrix[i][j].yPos
+        cellName.name = gridMatrix[i][j].name -- just for debug
         cellName:setSequence(gridMatrix[i][j].backgroundFrame)
+        --physics.addBody(cellName, "dynamic", bodyOptions)
+    end
+  end
+end
+
+local function addBodyToObstacles()
+  for i = 1, gridRows do
+    for j = 1, gridCol do
+      cellName = gridMatrix[i][j].name
+      if (gridMatrix[i][j].obstacle == 1) then
+        cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
+        cellName.x = gridMatrix[i][j].xPos
+        cellName.y = gridMatrix[i][j].yPos
+        cellName:setSequence('tree1')
+        cellName:play()
+        physics.addBody(cellName, "static")
+      end
     end
   end
 end
@@ -126,10 +144,14 @@ local function openPath(rowNumber, colNumber)
     -- choose the random path and save it in the grid to remember it
     randomPath = 'path'..math.random(4)
     gridMatrix[rowNumber][colNumber].backgroundFrame = randomPath
+    -- remove the previous bg and replace
+    cellName = gridMatrix[rowNumber][colNumber]
+
     -- position the path with the new background
-    cellName = gridMatrix[rowNumber][colNumber].name
     cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
     cellName:setSequence(randomPath)
+    cellName:play()
+   -- physics.removeBody(cellName)
     cellName.x = gridMatrix[rowNumber][colNumber].xPos
     cellName.y = gridMatrix[rowNumber][colNumber].yPos
 end
@@ -172,7 +194,11 @@ local function createThePlayer()
     player = display.newSprite(imageSheet, sequenceData)
     player.x = gridMatrix[centerHoriz][centerVert].xPos
     player.y = gridMatrix[centerHoriz][centerVert].yPos
+    player.name = 'player'
     player:setSequence("walkingDown")
+    player.objectType = player
+    physics.addBody(player, "dynamic", bodyOptions)
+    --physics.addBody(player)
 end
 
 function showDirectionPad()
@@ -225,7 +251,17 @@ function move(event)
     end
 end
 
+local function onLocalCollision( self, event )
+  if (event.phase == "began" ) then
+    --print( self.name .. ": collision began with " .. event.other.name )
+  elseif ( event.phase == "ended" ) then
+    --print( self.name .. ": collision ended with " .. event.other.name )
+  end
+end
+
 local function frameUpdate()
+    player.collision = onLocalCollision
+    player:addEventListener( "collision" )
     if buttonPressed['Down'] == true and player.y <
       -- (screenHeight - heightFrame / 4) then
       (gridRows * heightFrame) - heightFrame/2 then
@@ -241,7 +277,6 @@ local function frameUpdate()
     elseif buttonPressed['Left'] == true and player.x >
         --(0 - widthFrame / 4) then
       (0 + widthFrame) then
-    print(player.x)
       player.x = player.x - velocity
     end
 end
@@ -250,6 +285,7 @@ end
 Runtime:addEventListener("enterFrame", frameUpdate) -- if the move buttons are pressed MOVE!
 randomWalkPath()
 showDirectionPad()
+addBodyToObstacles()
 createThePlayer()
 
 --[[
