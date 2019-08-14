@@ -35,12 +35,20 @@ physics.setGravity( 0,0 )
 local padButtonDimension = 30 -- GAMEPAD
 local buttonPressed = {Down = false, Up = false, Left = false, Right = false}
 local widthFrame, heightFrame = 50, 50
-local gridMatrix = {} -- matrix for the grid. 0 values in the cell means it's a PATH, 1 means it's an obstacle
+local gridMatrix = {}
 local gridRows, gridCol, centerHoriz, centerVert, marginHoriz, marginVert --just initial random data, they will be calculated in createGrid()
 local velocity = 5
 
 local player
-local bodyOptions = {density = 100.0, friction = 15, bounce = 0 }
+--local bodyOptions = {density = 100.0, friction = 15, bounce = 0 }
+local levelVars = {
+  {lvl = 1, trees = 5, liters = 2, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 2, trees = 5, liters = 2.1, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 3, trees = 6, liters = 2.2, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 4, trees = 6, liters = 2.3, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
+}
+local totalLevelTrees = 0
+local pathTracerMoves = 0
 
 -- Obstacles Sheet vars
 local obstacles = {'flower','rock','tree'}
@@ -65,6 +73,8 @@ local obstaclesSequenceData = {
     {name = "tree3", start = 15, count = 1, time = 100, loopCount = 0, loopDirection = "forward"},
     {name = "tree4", start = 16, count = 1, time = 100, loopCount = 0, loopDirection = "forward"}
 }
+local obstacleGrid = {}
+local treeGrid = {}
 
 -- Image and sprite options for dog
 local dogSrc = "scene/game/img/caracters/mainDog.png"
@@ -90,7 +100,16 @@ else
   native.setProperty( "androidSystemUiVisibility", "immersiveSticky" )
 end
 
--- Create a grid for the level
+--return cellName (FOR MULTIPLE USE)
+local function returnCellName(grid, r, c)
+  cellName = grid[r][c].name
+  --cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
+  cellName.x = grid[r][c].xPos
+  cellName.y = grid[r][c].yPos
+  return cellName
+end
+
+-- Create a grid filled with obstacles
 local function createTheGrid()
   -- find the grid dimensions
   gridCol = math.floor(display.contentWidth / widthFrame)
@@ -101,43 +120,33 @@ local function createTheGrid()
   marginVert = (display.contentHeight - (gridRows * heightFrame))/2
   -- center the grid
 
+  -- set level vars
+  totalLevelTrees = levelVars[1].trees
+  pathTracerMoves = levelVars[1].pathTracerMoves
+
   -- Populate the grid matrix for the level
   for i = 1, gridRows do
     gridMatrix[i] = {} -- create a new row
     for j = 1, gridCol do
         -- choose a random obstacle
-        randomObstacleType = obstacles[math.random(table.maxn(obstacles))]
-        randomObstacle = math.random(4)
-        -- gridCell = {x, y, path/obstacle (0/1), random obstacle, cell name}
-        gridMatrix[i][j] = {xPos = j * widthFrame, yPos = i * heightFrame, obstacle = 1, backgroundFrame = randomObstacleType..randomObstacle, name = 'gridCell'..'-'..i..'-'..j, type = objectType}
+         --randomObstacleType = obstacles[math.random(table.maxn(obstacles))]
+        --randomObstacle = math.random(4)
+        gridMatrix[i][j] = {
+          row = i, col = j,
+          xPos = j * widthFrame, yPos = i * heightFrame,
+          --obstacle = 1, backgroundFrame = randomObstacleType..randomObstacle,
+          obstacle = 1, backgroundFrame = obstacleBg,
+          name = 'gridCell'..'-'..i..'-'..j, type = obstacle}
         -- display cell
         cellName = gridMatrix[i][j].name
         cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
         cellName.x = gridMatrix[i][j].xPos
         cellName.y = gridMatrix[i][j].yPos
-        cellName.name = gridMatrix[i][j].name -- just for debug
-        cellName:setSequence(gridMatrix[i][j].backgroundFrame)
-        --physics.addBody(cellName, "dynamic", bodyOptions)
     end
   end
 end
 
-local function addBodyToObstacles()
-  for i = 1, gridRows do
-    for j = 1, gridCol do
-      cellName = gridMatrix[i][j].name
-      if (gridMatrix[i][j].obstacle == 1) then
-        cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
-        cellName.x = gridMatrix[i][j].xPos
-        cellName.y = gridMatrix[i][j].yPos
-        cellName:setSequence('tree1')
-        cellName:play()
-        physics.addBody(cellName, "static")
-      end
-    end
-  end
-end
-
+-- Create the walking path in a graphic way (TO BE DEFINED BEFORE THE WALKING ALGORITHM)
 local function openPath(rowNumber, colNumber)
     -- set the gridCell as path
     gridMatrix[rowNumber][colNumber].obstacle = 0
@@ -146,12 +155,10 @@ local function openPath(rowNumber, colNumber)
     gridMatrix[rowNumber][colNumber].backgroundFrame = randomPath
     -- remove the previous bg and replace
     cellName = gridMatrix[rowNumber][colNumber]
-
     -- position the path with the new background
     cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
     cellName:setSequence(randomPath)
     cellName:play()
-   -- physics.removeBody(cellName)
     cellName.x = gridMatrix[rowNumber][colNumber].xPos
     cellName.y = gridMatrix[rowNumber][colNumber].yPos
 end
@@ -163,8 +170,6 @@ local function randomWalkPath()
   pathTracer = display.newRect(gridMatrix[centerHoriz][centerVert].xPos, gridMatrix[centerHoriz][centerVert].yPos, widthFrame, heightFrame)
   pathTracer:setFillColor(0.8, 0.2, 0.3)
   pathTracer.name = "pathTracer"
-  -- set how many moves the pathTracer makes (more moves more clear space, easier the level)
-  pathTracerMoves = 290
   -- keep track of the grid coordinates to change from obstacle to path
   pathGridX = centerHoriz
   pathGridY = centerVert
@@ -185,6 +190,80 @@ local function randomWalkPath()
       pathGridY = pathGridY + 1
     end
     openPath(pathGridX,pathGridY)
+  end
+end
+
+-- Count the ramaining obstacles, add body to them and eventually select and create random trees
+local function createObstacles()
+  for i = 1, gridRows do
+    for j = 1, gridCol do
+      --[[ for k,v in pairs(obstacleGrid[i][j]) do
+        print( k,v )
+      end ]]
+      if (gridMatrix[i][j].obstacle == 1) then
+        table.insert(obstacleGrid, gridMatrix[i][j])
+        cellName = gridMatrix[i][j].name
+        cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
+        cellName.x = gridMatrix[i][j].xPos
+        cellName.y = gridMatrix[i][j].yPos
+        cellName:setSequence('flower1')      -- all obstacles have grass background
+        cellName:play()
+        physics.addBody(cellName, "static")
+      end
+    end
+  end
+end
+
+-- function to determine if a cell is reachable, needed for transformObstaclesIntoTrees
+local function checkIfReachable(r, c)
+  r0 = r - 1
+  r1 = r + 1
+  c0 = c - 1
+  c1 = c + 1
+  reachable = 0
+  -- check if the 4 direction are free (+1) or not (0)
+  if gridMatrix[r][c1] ~= nil and gridMatrix[r][c1].obstacle == 0 then
+   reachable = reachable + 1
+  end
+  if gridMatrix[r1] ~= nil and gridMatrix[r1][c].obstacle == 0 then
+   reachable = reachable + 1
+  end
+  if gridMatrix[r][c0] ~= nil and gridMatrix[r][c0].obstacle == 0 then
+   reachable = reachable + 1
+  end
+  if gridMatrix[r0] ~= nil and gridMatrix[r0][c].obstacle == 0 then
+   reachable = reachable + 1
+  end
+  if reachable > 0 then
+    return true
+  end
+end
+
+local function transformObstaclesIntoTrees()
+  actualTrees = 0
+  for t = 1, totalLevelTrees do
+    randomCell = math.random(totalLevelTrees)    -- choose a random cell
+    -- check if it's close to path
+    isReachable = checkIfReachable(obstacleGrid[randomCell].row, obstacleGrid[randomCell].col)
+    if isReachable == true and actualTrees < totalLevelTrees then
+      -- substitute the cell with the new background
+      randomTree = 'tree'..math.random(4)       -- choose a random frame
+      localRow = obstacleGrid[randomCell].row
+      localCol = obstacleGrid[randomCell].col
+      cellName = gridMatrix[localRow][localCol].name
+      cellName = display.newSprite(obstaclesSheet, obstaclesSequenceData)
+      cellName.x = gridMatrix[localRow][localCol].xPos
+      cellName.y = gridMatrix[localRow][localCol].yPos
+      cellName:setSequence(randomTree)
+      cellName:play()
+      physics.addBody(cellName, "static")
+      table.insert(treeGrid, obstacleGrid[randomCell])  -- save it in the treeGrid to keep track
+      table.remove(obstacleGrid, randomCell)            -- remove so it can't be chooosen again
+      actualTrees = actualTrees + 1
+     --[[  for k,v in pairs(treeGrid[table.maxn(treeGrid)]) do
+        print( k,v )
+      end ]]
+    end
   end
 end
 
@@ -285,7 +364,8 @@ end
 Runtime:addEventListener("enterFrame", frameUpdate) -- if the move buttons are pressed MOVE!
 randomWalkPath()
 showDirectionPad()
-addBodyToObstacles()
+createObstacles()
+transformObstaclesIntoTrees()
 createThePlayer()
 
 --[[
