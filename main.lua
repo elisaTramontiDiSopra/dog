@@ -8,9 +8,10 @@
 -- for joystick and keyboard control
 
 -- REQUIRE
+local composer = require "composer"
 local physics = require "physics"
 physics.start()
--- physics.setGravity( 0,0 )
+physics.setGravity( 0,0 )
 physics.setDrawMode( "hybrid" )
 
 -- GAME VARS
@@ -21,14 +22,31 @@ local levelVars = {
   {lvl = 4, trees = 6, minPeeLevel = 0.3, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
 }
 
+-- GAMEPAD
+local padButtonDimension = 30
+local buttonPressed = {Down = false, Up = false, Left = false, Right = false}
+
 -- TILES VARS
 local obstaclesSrc = "scene/game/img/tiles/"
 local obstacles = {'flower','rock','tree'}
 local widthFrame, heightFrame = 50, 50 --dimensions of the tiles on screen
+local anchorXPoint, anchorYPoint = 1, 1 -- anchor points for all the tiles created
 local gridRows, gridCols
 local gridMatrix = {}
 local obstacleGrid = {}
 
+-- PLAYER VARS
+local player
+local velocity = 5
+local playerSrc = "scene/game/img/caracters/mainDog.png"
+local playerSheetOptions = {width = widthFrame, height = heightFrame, numFrames = 20}
+local playerSequenceData = {
+    {name = "walkingDown", start = 1, count = 4, time = 100, loopCount = 0, loopDirection = "forward"},
+    {name = "walkingLeft", start = 5, count = 4, time = 100, loopCount = 0, loopDirection = "forward"},
+    {name = "walkingRight", start = 9, count = 4, time = 100, loopCount = 0, loopDirection = "forward"},
+    {name = "walkingUp", start = 13, count = 4, time = 100, loopCount = 0, loopDirection = "forward"},
+    {name = "pee", start = 17, count = 4, time = 100, loopCount = 0, loopDirection = "forward"}
+}
 
 function printPairs(grid)
   for k,v in pairs(grid) do
@@ -49,13 +67,13 @@ local function initLevelSettings()
   gridRows = math.floor(display.contentHeight / heightFrame)
   centerHoriz = math.floor(gridRows/2)
   centerVert = math.floor(gridCols/2)
-  print(gridRows..' '..gridCols)
+  print(centerHoriz..' '..centerVert)
 end
 
 local function createSingleTile(classTile, xPos, yPos, row, col)
   myImage = display.newImage(obstaclesSrc..classTile..'.png')
-  myImage.anchorX = 1 --anchor on the bottom right corner
-  myImage.anchorY = 1
+  myImage.anchorX = anchorXPoint --anchor on the bottom right corner
+  myImage.anchorY = anchorYPoint
   myImage.x = xPos
   myImage.y = yPos
   myImage.row = row
@@ -185,8 +203,10 @@ local function transformObstaclesIntoTrees()
       -- destroy the old cell image
       destroySingleTile(obstacleGrid[randomCell])
       obstacleGrid[randomCell] = nil
+
       cell = createSingleTile(randomTree, localCol * widthFrame, localRow * heightFrame, localRow, localCol)
       obstacleGrid[randomCell] = cell
+
       -- set the current cell as tree
       obstacleGrid[randomCell].type = randomTree
       physics.addBody(cell, "static")
@@ -199,9 +219,120 @@ local function transformObstaclesIntoTrees()
   end
 end
 
+local function createThePlayer()
+  local imageSheet = graphics.newImageSheet(playerSrc, playerSheetOptions)
+  player = display.newSprite(imageSheet, playerSequenceData)
+  player.anchorX = anchorXPoint --anchor on the bottom right corner
+  player.anchorY = anchorYPoint
+  player.x = centerVert * heightFrame
+  player.y = centerHoriz * widthFrame
+  player.name = 'player'
+  player:setSequence("walkingDown")
+  player.objectType = player
+  physics.addBody(player, "dynamic", bodyOptions)
+end
+
+local function move(event)
+  if (event.phase == "began") then
+    buttonPressed[event.target.name] = true
+    walkAnimation = "walking" .. event.target.name
+    player:setSequence(walkAnimation)
+    player:play()
+  elseif (event.phase == "ended") then
+    buttonPressed[event.target.name] = false
+    player:pause()
+  end
+end
+
+local function pee(event)
+  tree = treeGrid[1]
+  tree.minPeeLevel = minPeeLevel --assign pee lvl from the lvl properties
+  if (event.phase == "began") then
+    buttonPressed[event.target.name] = true
+    player:setSequence("pee")
+    player:play()
+  elseif (event.phase == "ended") then
+    buttonPressed[event.target.name] = false
+    player:setSequence("walkingDown")
+    player:play()
+    player:pause()
+  end
+end
+
+local function showDirectionPad()
+    upBtn = display.newRect(display.contentWidth -
+                                (padButtonDimension - padButtonDimension / 2),
+                            display.contentHeight -
+                                (2 * padButtonDimension + padButtonDimension / 4),
+                            padButtonDimension, padButtonDimension)
+    upBtn:setFillColor(0, 0, 0)
+    upBtn.name = "Up"
+    upBtn:addEventListener("touch", move)
+
+    downBtn = display.newRect(display.contentWidth -
+                                  (padButtonDimension - padButtonDimension / 2),
+                              display.contentHeight -
+                                  (padButtonDimension - padButtonDimension / 4),
+                              padButtonDimension, padButtonDimension)
+    downBtn.name = "Down"
+    downBtn:addEventListener("touch", move)
+
+    leftBtn = display.newRect(display.contentWidth -
+                                  (2 * padButtonDimension - padButtonDimension /
+                                      4), display.contentHeight -
+                                  (2 * padButtonDimension - padButtonDimension /
+                                      2), padButtonDimension, padButtonDimension)
+    leftBtn:setFillColor(0.8, 0.2, 0.3)
+    leftBtn.name = "Left"
+    leftBtn:addEventListener("touch", move)
+
+    rightBtn = display.newRect(display.contentWidth +
+                                   (padButtonDimension - padButtonDimension / 4),
+                               display.contentHeight -
+                                   (2 * padButtonDimension - padButtonDimension /
+                                       2), padButtonDimension,
+                               padButtonDimension)
+    rightBtn:setFillColor(0.2, 0.9, 0.9)
+    rightBtn.name = "Right"
+    rightBtn:addEventListener("touch", move)
+
+    peeBtn = display.newRect(80, 350, padButtonDimension,
+                               padButtonDimension)
+    peeBtn:setFillColor(0.6, 0.1, 0.4)
+    peeBtn.name = "Pee"
+    peeBtn:addEventListener("touch", pee)
+end
+
+local function frameUpdate()
+  player.rotation = 0 -- to prevent player from rotating if walking on an obstacle angle
+  player.collision = onLocalCollision
+  --player:addEventListener( "collision" )
+  if buttonPressed['Down'] == true and player.y <
+    -- (screenHeight - heightFrame / 4) then
+    (gridRows * heightFrame) - heightFrame/2 then
+    player.y = player.y + velocity
+  elseif buttonPressed['Up'] == true and player.y >
+    --(0 + heightFrame / 4) then
+    (0 + heightFrame) then
+    player.y = player.y - velocity
+  elseif buttonPressed['Right'] == true and player.x <
+    --(screenWidth + widthFrame / 4) then
+    (gridCols * widthFrame) then
+    player.x = player.x + velocity
+  elseif buttonPressed['Left'] == true and player.x >
+    --(0 - widthFrame / 4) then
+    (0 + widthFrame) then
+    player.x = player.x - velocity
+  end
+end
+
 -- GAME
+Runtime:addEventListener("enterFrame", frameUpdate) -- if the move buttons are pressed MOVE!
+
 initLevelSettings()
 createTheGrid()
 randomWalkPath()
 createObstacles()
 transformObstaclesIntoTrees()
+createThePlayer()
+showDirectionPad()
