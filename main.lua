@@ -11,7 +11,7 @@
 local physics = require "physics"
 physics.start()
 -- physics.setGravity( 0,0 )
--- physics.setDrawMode( "hybrid" )
+physics.setDrawMode( "hybrid" )
 
 -- GAME VARS
 local levelVars = {
@@ -24,7 +24,7 @@ local levelVars = {
 -- TILES VARS
 local obstaclesSrc = "scene/game/img/tiles/"
 local obstacles = {'flower','rock','tree'}
-local widthFrame, heightFrame = 50, 50
+local widthFrame, heightFrame = 50, 50 --dimensions of the tiles on screen
 local gridRows, gridCols
 local gridMatrix = {}
 local obstacleGrid = {}
@@ -49,8 +49,7 @@ local function initLevelSettings()
   gridRows = math.floor(display.contentHeight / heightFrame)
   centerHoriz = math.floor(gridRows/2)
   centerVert = math.floor(gridCols/2)
-  print('gridCol '..gridCols)
-  print('gridRows '..gridRows)
+  print(gridRows..' '..gridCols)
 end
 
 local function createSingleTile(classTile, xPos, yPos, row, col)
@@ -78,6 +77,7 @@ local function createTheGrid()
     gridMatrix[i] = {} -- create a new row
     for j = 1, gridCols do
       gridMatrix[i][j] = createSingleTile('grass', j * widthFrame, i * heightFrame, i, j)
+      printPairs(gridMatrix[i][j])
     end
   end
 end
@@ -87,16 +87,13 @@ local function openPath(rowNumber, colNumber)
     -- choose the random tile and save it in the grid to remember it
     randomPath = 'path'..math.random(4)
     -- remove old tile
-    --printPairs(gridMatrix[rowNumber][colNumber])
     gridMatrix[rowNumber][colNumber]:removeSelf()
     gridMatrix[rowNumber][colNumber] = nil
-    --print('NIL '..gridMatrix[rowNumber][colNumber])
     -- create the new image and save it on the grid
     cell = createSingleTile(randomPath, colNumber * widthFrame, rowNumber * heightFrame, rowNumber, colNumber)
     gridMatrix[rowNumber][colNumber] = cell
     gridMatrix[rowNumber][colNumber].obstacle = 0  -- set as path
     gridMatrix[rowNumber][colNumber].type = 'path'
-    print('row '..gridMatrix[rowNumber][colNumber].row..' col '..gridMatrix[rowNumber][colNumber].col)
 end
 
 -- Random walking algorithm, clearing the path
@@ -117,7 +114,6 @@ local function randomWalkPath()
     elseif (randomDirection == 4 and pathGridY < gridCols) then -- moveDown
       pathGridY = pathGridY + 1
     end
-    print('INPUT '..pathGridX..' '..pathGridY)
     openPath(pathGridX,pathGridY)
   end
 end
@@ -127,8 +123,7 @@ local function createObstacles()
   for i = 1, gridRows do
     for j = 1, gridCols do
       if (gridMatrix[i][j].obstacle == 1) then
-        --print(gridMatrix[i][j].obstacle)
-        cell = createSingleTile('tree', j * widthFrame, i * heightFrame, j, i) -- all obstacles have grass background
+        cell = createSingleTile('flower3', j * widthFrame, i * heightFrame, i, j) -- all obstacles have grass background
         table.insert(obstacleGrid, cell)
         physics.addBody(cell, "static")
       end
@@ -145,24 +140,10 @@ local function checkIfReachable(r, c)
   c1 = c + 1
   reachable = 0
 
-  -- check if the 4 direction are free (+1) or not (0)
-    --[[ print(r0..' '..r..' '..r1)
-    print(c0..' '..c..' '..c1)
-    print(gridMatrix[r][c1].name)
-    print(gridMatrix[r1][c].obstacle) ]]
-    --print(r0)
-  --[[ for r=1, gridRow do
-    for c = 1, gridCol do
-      for k,v in pairs(gridMatrix[r][c]) do
-        print( k,v )
-      end
-    end
-  end ]]
-
-  --[[ if c1 <= gridCol and gridMatrix[r][c1].obstacle == 0 then
+  if c1 <= gridCols and gridMatrix[r][c1].obstacle == 0 then
     reachable = reachable + 1
   end
-  if r1 <= gridRow and gridMatrix[r1][c].obstacle == 0 then
+  if r1 <= gridRows and gridMatrix[r1][c].obstacle == 0 then
     reachable = reachable + 1
   end
   if c0 > 0 and gridMatrix[r][c0].obstacle == 0 then
@@ -173,24 +154,41 @@ local function checkIfReachable(r, c)
   end
   if reachable > 0 then
     return true
-  end ]]
-  return true
+  end
+end
+
+local function checkIfIsATree(cell)
+  if obstacleGrid[randomCell].type == 'tree1' or
+     obstacleGrid[randomCell].type == 'tree2' or
+     obstacleGrid[randomCell].type == 'tree3' or
+     obstacleGrid[randomCell].type == 'tree4' then
+      return true
+     else
+    return false
+     end
 end
 
 local function transformObstaclesIntoTrees()
   actualTrees = 0
-  for t = 1, totalLevelTrees do
+  while actualTrees < totalLevelTrees do
     randomCell = math.random(table.maxn(obstacleGrid))    -- choose a random cell
     -- check if it's close to path
     isReachable = checkIfReachable(obstacleGrid[randomCell].row, obstacleGrid[randomCell].col)
-    if isReachable == true and actualTrees < totalLevelTrees then
+    alreadyChosenAsTree = checkIfIsATree(obstacleGrid[randomCell])
+    if isReachable == true and alreadyChosenAsTree == false then
+      actualTrees = actualTrees + 1
       -- substitute the cell with the new background
       randomTree = 'tree'..math.random(4)
-      --print(randomTree)              -- choose a random frame
+
       localRow = obstacleGrid[randomCell].row
       localCol = obstacleGrid[randomCell].col
-
-      cell = createSingleTile(randomTree, localRow * widthFrame, localCol * heightFrame, localRow, localCol)
+      -- destroy the old cell image
+      destroySingleTile(obstacleGrid[randomCell])
+      obstacleGrid[randomCell] = nil
+      cell = createSingleTile(randomTree, localCol * widthFrame, localRow * heightFrame, localRow, localCol)
+      obstacleGrid[randomCell] = cell
+      -- set the current cell as tree
+      obstacleGrid[randomCell].type = randomTree
       physics.addBody(cell, "static")
 
       -- create the tree object
@@ -205,6 +203,5 @@ end
 initLevelSettings()
 createTheGrid()
 randomWalkPath()
---createObstacles()
---transformObstaclesIntoTrees()
---cell = createSingleTile('flower1', col * widthFrame, row * heightFrame, 7, 11)
+createObstacles()
+transformObstaclesIntoTrees()
