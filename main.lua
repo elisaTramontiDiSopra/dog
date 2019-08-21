@@ -15,11 +15,12 @@ physics.setGravity( 0,0 )
 physics.setDrawMode( "hybrid" )
 
 -- GAME VARS
+local maxPeeLevel, minPeeLevel, totalLevelTrees,peeVelocity, pathTracerMoves
 local levelVars = {
-  {lvl = 1, trees = 5, minPeeLevel = 0.2, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 2, trees = 5, minPeeLevel = 0.2, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 3, trees = 6, minPeeLevel = 0.3, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 4, trees = 6, minPeeLevel = 0.3, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
+  {lvl = 1, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 6, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 2, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 3, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 4, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 4, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
 }
 
 -- GAMEPAD
@@ -30,7 +31,7 @@ local buttonPressed = {Down = false, Up = false, Left = false, Right = false}
 local obstaclesSrc = "scene/game/img/tiles/"
 local obstacles = {'flower','rock','tree'}
 local widthFrame, heightFrame = 50, 50 --dimensions of the tiles on screen
-local anchorXPoint, anchorYPoint = 1, 1 -- anchor points for all the tiles created
+local anchorXPoint, anchorYPoint = 0.5, 0.5 -- anchor points for all the tiles created
 local gridRows, gridCols
 local gridMatrix = {}
 local obstacleGrid = {}
@@ -38,8 +39,11 @@ local obstacleGrid = {}
 -- PLAYER VARS
 local player
 local velocity = 5
+local peeing = false
+local collidedWith = {}
 local playerSrc = "scene/game/img/caracters/mainDog.png"
 local playerSheetOptions = {width = widthFrame, height = heightFrame, numFrames = 20}
+local playerBodyOptions = {radius = 20} -- for adding a physics body, use circle or it wouldn't be realistic
 local playerSequenceData = {
     {name = "walkingDown", start = 1, count = 4, time = 100, loopCount = 0, loopDirection = "forward"},
     {name = "walkingLeft", start = 5, count = 4, time = 100, loopCount = 0, loopDirection = "forward"},
@@ -61,6 +65,9 @@ end
 local function initLevelSettings()
   pathTracerMoves = levelVars[1].pathTracerMoves
   totalLevelTrees = levelVars[1].trees
+  peeVelocity = levelVars [1].peeVelocity
+  maxPeeLevel = levelVars [1].maxPeeLevel
+  minPeeLevel = levelVars[1].minPeeLevel
 
   -- find the grid dimensions
   gridCols = math.floor(display.contentWidth / widthFrame)
@@ -68,6 +75,7 @@ local function initLevelSettings()
   centerHoriz = math.floor(gridRows/2)
   centerVert = math.floor(gridCols/2)
   print(centerHoriz..' '..centerVert)
+
 end
 
 local function createSingleTile(classTile, xPos, yPos, row, col)
@@ -95,7 +103,6 @@ local function createTheGrid()
     gridMatrix[i] = {} -- create a new row
     for j = 1, gridCols do
       gridMatrix[i][j] = createSingleTile('grass', j * widthFrame, i * heightFrame, i, j)
-      printPairs(gridMatrix[i][j])
     end
   end
 end
@@ -176,14 +183,15 @@ local function checkIfReachable(r, c)
 end
 
 local function checkIfIsATree(cell)
-  if obstacleGrid[randomCell].type == 'tree1' or
-     obstacleGrid[randomCell].type == 'tree2' or
-     obstacleGrid[randomCell].type == 'tree3' or
-     obstacleGrid[randomCell].type == 'tree4' then
-      return true
-     else
+  if cell.type == 'tree' or
+     cell.type == 'tree1' or
+     cell.type == 'tree2' or
+     cell.type == 'tree3' or
+     cell.type == 'tree4' then
+     return true
+  else
     return false
-     end
+  end
 end
 
 local function transformObstaclesIntoTrees()
@@ -203,18 +211,45 @@ local function transformObstaclesIntoTrees()
       -- destroy the old cell image
       destroySingleTile(obstacleGrid[randomCell])
       obstacleGrid[randomCell] = nil
+      destroySingleTile(gridMatrix[localRow][localCol])
+      gridMatrix[localRow][localCol] = nil
 
       cell = createSingleTile(randomTree, localCol * widthFrame, localRow * heightFrame, localRow, localCol)
       obstacleGrid[randomCell] = cell
+      gridMatrix[localRow][localCol] = cell
 
       -- set the current cell as tree
-      obstacleGrid[randomCell].type = randomTree
-      physics.addBody(cell, "static")
+      gridMatrix[localRow][localCol].type = 'tree'
+      gridMatrix[localRow][localCol].peeLevel = 0
+      gridMatrix[localRow][localCol].maxPeeLevel = maxPeeLevel
+      gridMatrix[localRow][localCol].minPeeLevel = minPeeLevel
+      --printPairs(gridMatrix[localRow][localCol])
+      physics.addBody(gridMatrix[localRow][localCol], "static")
 
-      -- create the tree object
-      tree = obstacleGrid[randomCell]
-      tree.peeLevel = 0
+    end
+  end
+end
 
+local function playerCollision(self, event)
+  if (event.phase == "began" ) then
+    if event.other.type == 'tree' then
+      collidedWith = event.other
+      --printPairs(collidedWith)
+    end
+    printPairs(collidedWith)
+  end
+  return true --limit event propagation
+end
+
+function pee()
+  print('pee')
+  if checkIfIsATree(collidedWith) then
+    localRow = collidedWith.row
+    localCol = collidedWith.col
+    peeLevel = gridMatrix[localRow][localCol].peeLevel
+    if peeLevel <= maxPeeLevel then
+      gridMatrix[localRow][localCol].peeLevel = gridMatrix[localRow][localCol].peeLevel + peeVelocity
+      print(gridMatrix[localRow][localCol].peeLevel)
     end
   end
 end
@@ -229,7 +264,11 @@ local function createThePlayer()
   player.name = 'player'
   player:setSequence("walkingDown")
   player.objectType = player
-  physics.addBody(player, "dynamic", bodyOptions)
+  -- player collision
+  player.collision = playerCollision
+  player:addEventListener("collision", player)
+
+  physics.addBody(player, "dynamic", playerBodyOptions)
 end
 
 local function move(event)
@@ -240,21 +279,6 @@ local function move(event)
     player:play()
   elseif (event.phase == "ended") then
     buttonPressed[event.target.name] = false
-    player:pause()
-  end
-end
-
-local function pee(event)
-  tree = treeGrid[1]
-  tree.minPeeLevel = minPeeLevel --assign pee lvl from the lvl properties
-  if (event.phase == "began") then
-    buttonPressed[event.target.name] = true
-    player:setSequence("pee")
-    player:play()
-  elseif (event.phase == "ended") then
-    buttonPressed[event.target.name] = false
-    player:setSequence("walkingDown")
-    player:play()
     player:pause()
   end
 end
@@ -303,31 +327,69 @@ local function showDirectionPad()
     peeBtn:addEventListener("touch", pee)
 end
 
+local function hasCollidedRect( obj1, obj2 )
+    if ( obj1 == nil ) then  -- Make sure the first object exists
+        return false
+    end
+    if ( obj2 == nil ) then  -- Make sure the other object exists
+        return false
+    end
+
+    local left = obj1.contentBounds.xMin <= obj2.contentBounds.xMin and obj1.contentBounds.xMax >= obj2.contentBounds.xMin
+    local right = obj1.contentBounds.xMin >= obj2.contentBounds.xMin and obj1.contentBounds.xMin <= obj2.contentBounds.xMax
+    local up = obj1.contentBounds.yMin <= obj2.contentBounds.yMin and obj1.contentBounds.yMax >= obj2.contentBounds.yMin
+    local down = obj1.contentBounds.yMin >= obj2.contentBounds.yMin and obj1.contentBounds.yMin <= obj2.contentBounds.yMax
+
+    return ( left or right ) and ( up or down )
+end
+
+--[[ local function onLocalPostCollision( self, event )
+  if (event.phase == "began" ) then
+    --printPairs(event)
+    collidedWith = event.other
+    print('r '..collidedWith.row)
+    print(collidedWith.col)
+    --print( self.name .. ": collision began with " .. event.other.name )
+
+  elseif ( event.phase == "ended" ) then -- ends when you move somewhere else
+    collidedWith = event.other
+    print('r '..collidedWith.row)
+    print('c '..collidedWith.col)
+    print('type '..collidedWith.type)
+    -- print('ended')
+    --print( self.name .. ": collision ended with " .. event.other.name )
+
+  end
+
+end ]]
+
 local function frameUpdate()
   player.rotation = 0 -- to prevent player from rotating if walking on an obstacle angle
-  player.collision = onLocalCollision
-  --player:addEventListener( "collision" )
+  --player.postCollision = onLocalPostCollision
+  --player:addEventListener( "postCollision" )
   if buttonPressed['Down'] == true and player.y <
-    -- (screenHeight - heightFrame / 4) then
     (gridRows * heightFrame) - heightFrame/2 then
+    --collidedWith = nil -- as soon as you move delete the last collision
     player.y = player.y + velocity
   elseif buttonPressed['Up'] == true and player.y >
-    --(0 + heightFrame / 4) then
     (0 + heightFrame) then
+     -- collidedWith = nil -- as soon as you move delete the last collision
     player.y = player.y - velocity
   elseif buttonPressed['Right'] == true and player.x <
-    --(screenWidth + widthFrame / 4) then
     (gridCols * widthFrame) then
+     -- collidedWith = nil -- as soon as you move delete the last collision
     player.x = player.x + velocity
   elseif buttonPressed['Left'] == true and player.x >
-    --(0 - widthFrame / 4) then
     (0 + widthFrame) then
+     -- collidedWith = nil -- as soon as you move delete the last collision
     player.x = player.x - velocity
   end
 end
 
 -- GAME
 Runtime:addEventListener("enterFrame", frameUpdate) -- if the move buttons are pressed MOVE!
+
+
 
 initLevelSettings()
 createTheGrid()
