@@ -9,6 +9,7 @@
 
 -- REQUIRE
 local composer = require "composer"
+local widget = require "widget"
 local physics = require "physics"
 physics.start()
 physics.setGravity( 0,0 )
@@ -229,6 +230,21 @@ local function checkIfIsATree(cell)
   end
 end
 
+local function updateTreePeeBar(peeLevel, treeNumber)
+  peeBarName = 'peeBar'..treeNumber
+  peePerc = peeLevel / maxPeeLevel
+  peeBarName:setProgress(peePerc) -- percentage
+end
+
+local function visualizeTreePeeBar(xPos, yPos, treeNumber)
+  peeBarName = 'peeBar'..treeNumber
+  peeBarName = widget.newProgressView( {left = xPos, top = yPos, width = widthFrame, isAnimated = true} )
+  --[[ peeBarName = display.newRect(xPos, yPos, widthFrame, 5 )
+  peeBarName.strokeWidth = 1
+  peeBarName:setFillColor(0.2)
+  peeBarName:setStrokeColor(0, 0, 0) ]]
+end
+
 local function transformObstaclesIntoTrees()
   actualTrees = 0
   while actualTrees < totalLevelTrees do
@@ -258,6 +274,10 @@ local function transformObstaclesIntoTrees()
       gridMatrix[localRow][localCol].peeLevel = 0
       gridMatrix[localRow][localCol].maxPeeLevel = maxPeeLevel
       gridMatrix[localRow][localCol].minPeeLevel = minPeeLevel
+
+      -- add the pee loading bar
+      visualizeTreePeeBar(localCol * widthFrame - widthFrame / 2, localRow * heightFrame + heightFrame / 2, actualTrees)
+
       --printPairs(gridMatrix[localRow][localCol])
       physics.addBody(gridMatrix[localRow][localCol], "static")
 
