@@ -19,7 +19,7 @@ physics.setGravity( 0,0 )
 local maxPeeLevel, minPeeLevel, totalLevelTrees,peeVelocity, pathTracerMoves
 local levelVars = {
   {lvl = 1, timerSeconds = 20, pathTracerMoves = 300, obstacleTile = 'flower', treeTile = 'tree', pathTile = 'path',
-   trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeStream = 6, vanishingPee = 1.5},
+   trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeStream = 6, vanishingPee = 2},
   {lvl = 2, timerSeconds = 180, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeStream = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
   {lvl = 3, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeStream = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
   {lvl = 4, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeStream = 4, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
@@ -40,6 +40,7 @@ local anchorXPoint, anchorYPoint = 0.5, 0.5 -- anchor points for all the tiles c
 local gridRows, gridCols
 local gridMatrix = {}
 local obstacleGrid = {}
+local treeGrid = {}
 
 -- PLAYER VARS
 local player
@@ -79,6 +80,7 @@ local function initLevelSettings()
   peeStream = levelVars [1].peeStream
   maxPeeLevel = levelVars [1].maxPeeLevel
   minPeeLevel = levelVars[1].minPeeLevel
+  vanishingPee = levelVars[1].vanishingPee
 
   -- find the grid dimensions
   gridCols = math.floor(display.contentWidth / widthFrame)
@@ -230,19 +232,15 @@ local function checkIfIsATree(cell)
   end
 end
 
-local function updateTreePeeBar(peeLevel, treeNumber)
-  peeBarName = 'peeBar'..treeNumber
+local function updateTreePeeBar(peeBar, peeLevel)
   peePerc = peeLevel / maxPeeLevel
-  peeBarName:setProgress(peePerc) -- percentage
+  peeBar:setProgress(peePerc) -- percentage
 end
 
-local function visualizeTreePeeBar(xPos, yPos, treeNumber)
-  peeBarName = 'peeBar'..treeNumber
-  peeBarName = widget.newProgressView( {left = xPos, top = yPos, width = widthFrame, isAnimated = true} )
-  --[[ peeBarName = display.newRect(xPos, yPos, widthFrame, 5 )
-  peeBarName.strokeWidth = 1
-  peeBarName:setFillColor(0.2)
-  peeBarName:setStrokeColor(0, 0, 0) ]]
+local function visualizeTreePeeBar(xPos, yPos)
+  peerBar = widget.newProgressView( {left = xPos, top = yPos, width = widthFrame, isAnimated = true} )
+  peerBar:setProgress(0.0)
+  return peerBar
 end
 
 local function transformObstaclesIntoTrees()
@@ -259,6 +257,7 @@ local function transformObstaclesIntoTrees()
 
       localRow = obstacleGrid[randomCell].row
       localCol = obstacleGrid[randomCell].col
+
       -- destroy the old cell image
       destroySingleTile(obstacleGrid[randomCell])
       obstacleGrid[randomCell] = nil
@@ -269,14 +268,19 @@ local function transformObstaclesIntoTrees()
       obstacleGrid[randomCell] = cell
       gridMatrix[localRow][localCol] = cell
 
+       -- add the pee loading bar
+      peeBar = visualizeTreePeeBar(localCol * widthFrame - widthFrame / 2, localRow * heightFrame + heightFrame / 2, actualTrees)
+
       -- set the current cell as tree
       gridMatrix[localRow][localCol].type = 'tree'
       gridMatrix[localRow][localCol].peeLevel = 0
       gridMatrix[localRow][localCol].maxPeeLevel = maxPeeLevel
       gridMatrix[localRow][localCol].minPeeLevel = minPeeLevel
+      gridMatrix[localRow][localCol].actualTrees = actualTrees --tree number
+      gridMatrix[localRow][localCol].peeBar = peeBar
 
-      -- add the pee loading bar
-      visualizeTreePeeBar(localCol * widthFrame - widthFrame / 2, localRow * heightFrame + heightFrame / 2, actualTrees)
+      -- add the current tree to a tree table
+      table.insert(treeGrid, {row = localRow, col = localCol, number = actualTrees})
 
       --printPairs(gridMatrix[localRow][localCol])
       physics.addBody(gridMatrix[localRow][localCol], "static")
@@ -303,6 +307,7 @@ function pee()
     peeLevel = gridMatrix[localRow][localCol].peeLevel
     if peeLevel <= maxPeeLevel then
       gridMatrix[localRow][localCol].peeLevel = gridMatrix[localRow][localCol].peeLevel + peeStream
+      updateTreePeeBar(gridMatrix[localRow][localCol].peeBar, gridMatrix[localRow][localCol].peeLevel)
       player:setSequence('pee')
       player:play()
     end
@@ -432,3 +437,4 @@ showDirectionPad()
 createTimer()
 
 local countDownTimer = timer.performWithDelay( 1000, updateTime, timerSeconds)
+local countDownPeeTimer = timer.performWithDelay( 1000, updatePeeLevels)
