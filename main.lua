@@ -17,10 +17,11 @@ physics.setDrawMode( "hybrid" )
 -- GAME VARS
 local maxPeeLevel, minPeeLevel, totalLevelTrees,peeVelocity, pathTracerMoves
 local levelVars = {
-  {lvl = 1, timerSeconds = 20, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 6, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 2, timerSeconds = 180, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 3, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 4, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 4, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
+  {lvl = 1, timerSeconds = 20, pathTracerMoves = 300, obstacleTile = 'flower', treeTile = 'tree', pathTile = 'path',
+   trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeStream = 6, vanishingPee = 1.5},
+  {lvl = 2, timerSeconds = 180, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeStream = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 3, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeStream = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 4, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeStream = 4, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
 }
 
 -- GAMEPAD
@@ -67,8 +68,13 @@ end
 
 local function initLevelSettings()
   pathTracerMoves = levelVars[1].pathTracerMoves
+
+  obstacleTile = levelVars[1].obstacleTile
+  treeTile = levelVars[1].treeTile
+  pathTile = levelVars[1].pathTile
+
   totalLevelTrees = levelVars[1].trees
-  peeVelocity = levelVars [1].peeVelocity
+  peeStream = levelVars [1].peeStream
   maxPeeLevel = levelVars [1].maxPeeLevel
   minPeeLevel = levelVars[1].minPeeLevel
   timerSeconds = levelVars[1].timerSeconds
@@ -124,7 +130,8 @@ local function createTheGrid()
   for i = 1, gridRows do
     gridMatrix[i] = {} -- create a new row
     for j = 1, gridCols do
-      gridMatrix[i][j] = createSingleTile('grass', j * widthFrame, i * heightFrame, i, j)
+      tile = obstacleTile..math.random(4)
+      gridMatrix[i][j] = createSingleTile(tile, j * widthFrame, i * heightFrame, i, j)
     end
   end
 end
@@ -132,7 +139,7 @@ end
 -- Create the walking path in a graphic way (TO BE DEFINED BEFORE THE WALKING ALGORITHM)
 local function openPath(rowNumber, colNumber)
     -- choose the random tile and save it in the grid to remember it
-    randomPath = 'path'..math.random(4)
+    randomPath = pathTile..math.random(4)
     -- remove old tile
     gridMatrix[rowNumber][colNumber]:removeSelf()
     gridMatrix[rowNumber][colNumber] = nil
@@ -170,7 +177,8 @@ local function createObstacles()
   for i = 1, gridRows do
     for j = 1, gridCols do
       if (gridMatrix[i][j].obstacle == 1) then
-        cell = createSingleTile('flower3', j * widthFrame, i * heightFrame, i, j) -- all obstacles have grass background
+        tile = obstacleTile..math.random(4)
+        cell = createSingleTile(tile, j * widthFrame, i * heightFrame, i, j) -- all obstacles have grass background
         table.insert(obstacleGrid, cell)
         physics.addBody(cell, "static")
       end
@@ -270,7 +278,7 @@ function pee()
     localCol = collidedWith.col
     peeLevel = gridMatrix[localRow][localCol].peeLevel
     if peeLevel <= maxPeeLevel then
-      gridMatrix[localRow][localCol].peeLevel = gridMatrix[localRow][localCol].peeLevel + peeVelocity
+      gridMatrix[localRow][localCol].peeLevel = gridMatrix[localRow][localCol].peeLevel + peeStream
       print(gridMatrix[localRow][localCol].peeLevel)
     end
   end
