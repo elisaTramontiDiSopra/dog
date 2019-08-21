@@ -33,7 +33,7 @@ application = {
 		-- The scaling method of the content area is determined by the "scale" value.
 		-- If you omit this (not recommended), the width and height values will be ignored and the
 		-- content area will be set to the device's actual pixel width and height.
-		scale = "letterbox",
+		scale = "adaptive",
 		-- "letterbox" scales the content area to fill the screen while preserving the same aspect ratio
 		-- "zoomEven" scales the content area to fill the screen while preserving the same aspect ratio
 		-- "adaptive" uses a dynamic content width and height based on the device
@@ -42,8 +42,8 @@ application = {
 		-- By default, scaled content is centered on the screen
 		-- In "letterbox" scale mode, empty screen area will be evenly divided between both sides
 		-- In "zoomEven" mode, the bleed area will be cropped equally on both sides
-		xAlign = "center",  -- Possible values are "left", "center", or "right"
-		yAlign = "center",  -- Possible values are "top", "center", or "bottom"
+		xAlign = "left",  -- Possible values are "left", "center", or "right"
+		yAlign = "top",  -- Possible values are "top", "center", or "bottom"
 
 		-- The default frame rate is 30 frames per second, but you can set it to 60 frames per second
 		-- by adding the "fps" key. Values other than 30 or 60 will be ignored.
