@@ -12,7 +12,7 @@ local composer = require "composer"
 local physics = require "physics"
 physics.start()
 physics.setGravity( 0,0 )
-physics.setDrawMode( "hybrid" )
+--physics.setDrawMode( "hybrid" )
 
 -- GAME VARS
 local maxPeeLevel, minPeeLevel, totalLevelTrees,peeVelocity, pathTracerMoves
@@ -68,6 +68,7 @@ end
 
 local function initLevelSettings()
   pathTracerMoves = levelVars[1].pathTracerMoves
+  timerSeconds = levelVars[1].timerSeconds
 
   obstacleTile = levelVars[1].obstacleTile
   treeTile = levelVars[1].treeTile
@@ -77,7 +78,7 @@ local function initLevelSettings()
   peeStream = levelVars [1].peeStream
   maxPeeLevel = levelVars [1].maxPeeLevel
   minPeeLevel = levelVars[1].minPeeLevel
-  timerSeconds = levelVars[1].timerSeconds
+
   -- find the grid dimensions
   gridCols = math.floor(display.contentWidth / widthFrame)
   gridRows = math.floor(display.contentHeight / heightFrame)
@@ -213,7 +214,11 @@ local function checkIfReachable(r, c)
 end
 
 local function checkIfIsATree(cell)
-  if cell.type == 'tree' or
+  if cell == nil then
+    return false
+  end
+  if cell and
+     cell.type == 'tree' or
      cell.type == 'tree1' or
      cell.type == 'tree2' or
      cell.type == 'tree3' or
@@ -264,23 +269,26 @@ local function playerCollision(self, event)
   if (event.phase == "began" ) then
     if event.other.type == 'tree' then
       collidedWith = event.other
-      --printPairs(collidedWith)
+    else
+      collidedWith.type = event.other.type
     end
-    printPairs(collidedWith)
   end
   return true --limit event propagation
 end
 
 function pee()
-  print('pee')
   if checkIfIsATree(collidedWith) then
     localRow = collidedWith.row
     localCol = collidedWith.col
     peeLevel = gridMatrix[localRow][localCol].peeLevel
     if peeLevel <= maxPeeLevel then
       gridMatrix[localRow][localCol].peeLevel = gridMatrix[localRow][localCol].peeLevel + peeStream
-      print(gridMatrix[localRow][localCol].peeLevel)
+      player:setSequence('pee')
+      player:play()
     end
+  else
+    print("not a tree")
+    collidedWith = nil
   end
 end
 
@@ -357,42 +365,6 @@ local function showDirectionPad()
     peeBtn:addEventListener("touch", pee)
 end
 
-local function hasCollidedRect( obj1, obj2 )
-    if ( obj1 == nil ) then  -- Make sure the first object exists
-        return false
-    end
-    if ( obj2 == nil ) then  -- Make sure the other object exists
-        return false
-    end
-
-    local left = obj1.contentBounds.xMin <= obj2.contentBounds.xMin and obj1.contentBounds.xMax >= obj2.contentBounds.xMin
-    local right = obj1.contentBounds.xMin >= obj2.contentBounds.xMin and obj1.contentBounds.xMin <= obj2.contentBounds.xMax
-    local up = obj1.contentBounds.yMin <= obj2.contentBounds.yMin and obj1.contentBounds.yMax >= obj2.contentBounds.yMin
-    local down = obj1.contentBounds.yMin >= obj2.contentBounds.yMin and obj1.contentBounds.yMin <= obj2.contentBounds.yMax
-
-    return ( left or right ) and ( up or down )
-end
-
---[[ local function onLocalPostCollision( self, event )
-  if (event.phase == "began" ) then
-    --printPairs(event)
-    collidedWith = event.other
-    print('r '..collidedWith.row)
-    print(collidedWith.col)
-    --print( self.name .. ": collision began with " .. event.other.name )
-
-  elseif ( event.phase == "ended" ) then -- ends when you move somewhere else
-    collidedWith = event.other
-    print('r '..collidedWith.row)
-    print('c '..collidedWith.col)
-    print('type '..collidedWith.type)
-    -- print('ended')
-    --print( self.name .. ": collision ended with " .. event.other.name )
-
-  end
-
-end ]]
-
 local function checkIfLevelIsPassed()
   print("END")
 end
@@ -403,23 +375,26 @@ local function frameUpdate()
   end
 
   player.rotation = 0 -- to prevent player from rotating if walking on an obstacle angle
-  --player.postCollision = onLocalPostCollision
-  --player:addEventListener( "postCollision" )
+
   if buttonPressed['Down'] == true and player.y <
     (gridRows * heightFrame) - heightFrame/2 then
-    --collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith = nil
+    --collidedWith.type = 'empty'
     player.y = player.y + velocity
   elseif buttonPressed['Up'] == true and player.y >
     (0 + heightFrame) then
-     -- collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith.type = 'empty'
     player.y = player.y - velocity
   elseif buttonPressed['Right'] == true and player.x <
     (gridCols * widthFrame) then
-     -- collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith.type = 'empty'
     player.x = player.x + velocity
   elseif buttonPressed['Left'] == true and player.x >
     (0 + widthFrame) then
-     -- collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith = nil -- as soon as you move delete the last collision
+    --collidedWith.type = 'empty'
     player.x = player.x - velocity
   end
 end
