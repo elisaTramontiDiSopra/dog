@@ -17,15 +17,18 @@ physics.setDrawMode( "hybrid" )
 -- GAME VARS
 local maxPeeLevel, minPeeLevel, totalLevelTrees,peeVelocity, pathTracerMoves
 local levelVars = {
-  {lvl = 1, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 6, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 2, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 3, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
-  {lvl = 4, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 4, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
+  {lvl = 1, timerSeconds = 20, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 6, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 2, timerSeconds = 180, trees = 5, minPeeLevel = 0.2, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 3, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 5, vanishingPee = 1.5, minutes = 2, pathTracerMoves = 300},
+  {lvl = 4, timerSeconds = 180, trees = 6, minPeeLevel = 0.3, maxPeeLevel = 100, peeVelocity = 4, vanishingPee = 1, minutes = 2, pathTracerMoves = 300}
 }
 
 -- GAMEPAD
 local padButtonDimension = 30
 local buttonPressed = {Down = false, Up = false, Left = false, Right = false}
+
+-- TIMER VARS
+local tmr, timerText
 
 -- TILES VARS
 local obstaclesSrc = "scene/game/img/tiles/"
@@ -68,14 +71,33 @@ local function initLevelSettings()
   peeVelocity = levelVars [1].peeVelocity
   maxPeeLevel = levelVars [1].maxPeeLevel
   minPeeLevel = levelVars[1].minPeeLevel
-
+  timerSeconds = levelVars[1].timerSeconds
   -- find the grid dimensions
   gridCols = math.floor(display.contentWidth / widthFrame)
   gridRows = math.floor(display.contentHeight / heightFrame)
   centerHoriz = math.floor(gridRows/2)
   centerVert = math.floor(gridCols/2)
   print(centerHoriz..' '..centerVert)
+end
 
+local function createTimer()
+  -- visualize text with a random text inside
+  timerText = display.newText( "00:00", display.contentWidth - 50, 50, native.systemFont, 18 )
+  timerText:setFillColor( 1, 1, 1 )
+end
+
+local function updateTime( event )
+  -- Decrement the number of seconds
+  timerSeconds = timerSeconds - 1
+  -- Time is tracked in seconds; convert it to minutes and seconds
+  local minutes = math.floor( timerSeconds / 60 )
+  local seconds = timerSeconds % 60
+
+  -- Make it a formatted string
+  local timerDisplay = string.format( "%02d:%02d", minutes, seconds )
+
+  -- Update the text object
+  timerText.text = timerDisplay
 end
 
 local function createSingleTile(classTile, xPos, yPos, row, col)
@@ -363,7 +385,15 @@ end
 
 end ]]
 
+local function checkIfLevelIsPassed()
+  print("END")
+end
+
 local function frameUpdate()
+  if timerSeconds == 0 then
+    --checkIfLevelIsPassed()
+  end
+
   player.rotation = 0 -- to prevent player from rotating if walking on an obstacle angle
   --player.postCollision = onLocalPostCollision
   --player:addEventListener( "postCollision" )
@@ -389,8 +419,6 @@ end
 -- GAME
 Runtime:addEventListener("enterFrame", frameUpdate) -- if the move buttons are pressed MOVE!
 
-
-
 initLevelSettings()
 createTheGrid()
 randomWalkPath()
@@ -398,3 +426,6 @@ createObstacles()
 transformObstaclesIntoTrees()
 createThePlayer()
 showDirectionPad()
+createTimer()
+
+local countDownTimer = timer.performWithDelay( 1000, updateTime, timerSeconds)
